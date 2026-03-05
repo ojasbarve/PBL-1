@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI UX Intelligence Dashboard</title>
+
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            background-color: #f4f6f9;
+        }
+
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .metric-card h2 {
+            font-weight: bold;
+        }
+
+        .high { color: #dc3545; }
+        .medium { color: #fd7e14; }
+        .low { color: #198754; }
+
+        .table thead {
+            background-color: #0d6efd;
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container py-4">
+
+    <h2 class="text-center mb-4">AI-Based User Friction Intelligence Dashboard</h2>
+
+    <!-- KPI Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card metric-card p-3 text-center">
+                <h6>Total Sessions</h6>
+                <h2 id="totalSessions">0</h2>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card metric-card p-3 text-center">
+                <h6>High Friction</h6>
+                <h2 class="high" id="highCount">0</h2>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card metric-card p-3 text-center">
+                <h6>Medium Friction</h6>
+                <h2 class="medium" id="mediumCount">0</h2>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card metric-card p-3 text-center">
+                <h6>Low Friction</h6>
+                <h2 class="low" id="lowCount">0</h2>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card p-3">
+                <h5>Friction Distribution</h5>
+                <canvas id="donutChart"></canvas>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card p-3">
+                <h5>Friction Trend (Session Order)</h5>
+                <canvas id="lineChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="card p-3">
+        <h5>Recent Sessions</h5>
+        <table class="table table-bordered mt-3">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Clicks</th>
+                    <th>Back</th>
+                    <th>Retry</th>
+                    <th>Dwell</th>
+                    <th>Switch</th>
+                    <th>Probability</th>
+                    <th>Level</th>
+                </tr>
+            </thead>
+            <tbody id="sessionTable"></tbody>
+        </table>
+    </div>
+
+</div>
+
+<script>
+let donutChart;
+let lineChart;
+
+async function loadDashboard() {
+
+    const summary = await fetch("http://127.0.0.1:8000/analytics-summary").then(res => res.json());
+    const sessions = await fetch("http://127.0.0.1:8000/sessions").then(res => res.json());
+
+    // Update KPI
+    document.getElementById("totalSessions").innerText = summary.total_sessions;
+    document.getElementById("highCount").innerText = summary.high_friction;
+    document.getElementById("mediumCount").innerText = summary.medium_friction;
+    document.getElementById("lowCount").innerText = summary.low_friction;
+
+    // Donut Chart
+    const donutCtx = document.getElementById("donutChart").getContext("2d");
+
+    if (donutChart) donutChart.destroy();
+
+    donutChart = new Chart(donutCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Low', 'Medium', 'High'],
+            datasets: [{
+                data: [
+                    summary.low_friction,
+                    summary.medium_friction,
+                    summary.high_friction
+                ],
+                backgroundColor: ['#198754', '#fd7e14', '#dc3545']
+            }]
+        }
+    });
+
+    // Line Chart (Probability trend)
+    const lineCtx = document.getElementById("lineChart").getContext("2d");
+
+    if (lineChart) lineChart.destroy();
+
+    lineChart = new Chart(lineCtx, {
+        type: 'line',
+        data: {
+            labels: sessions.map(s => s.id),
+            datasets: [{
+                label: 'Friction Probability',
+                data: sessions.map(s => s.friction_probability),
+                borderColor: '#0d6efd',
+                fill: false
+            }]
+        }
+    });
+
+    // Table
+    const table = document.getElementById("sessionTable");
+    table.innerHTML = "";
+
+    sessions.slice(0,10).forEach(s => {
+        table.innerHTML += `
+            <tr>
+                <td>${s.id}</td>
+                <td>${s.total_clicks}</td>
+                <td>${s.back_clicks}</td>
+                <td>${s.retry_count}</td>
+                <td>${s.dwell_time}</td>
+                <td>${s.page_switch_count}</td>
+                <td>${s.friction_probability.toFixed(2)}</td>
+                <td>${s.friction_level}</td>
+            </tr>
+        `;
+    });
+}
+
+// Auto refresh every 5 sec
+setInterval(loadDashboard, 5000);
+loadDashboard();
+
+</script>
+
+</body>
+</html> 

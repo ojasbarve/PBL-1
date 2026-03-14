@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI UX Intelligence Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            --bg: #edf1f6;
+            --bg-grad-1: #f6fbff;
+            --bg-grad-2: #e9eff7;
+            --text: #101722;
+            --muted: #6a7687;
+            --card: rgba(255, 255, 255, 0.88);
+            --card-border: rgba(255, 255, 255, 0.7);
+            --shadow: 0 20px 45px rgba(18, 34, 66, 0.1);
+            --table-head: #132338;
+            --table-head-text: #eff6ff;
+            --good: #0ea76a;
+            --warn: #f08c00;
+            --bad: #d6334c;
+            --line: #2b73ea;
+            --surface: #ffffff;
+            --hover-border: rgba(31, 111, 235, 0.62);
+            --hover-shadow: 0 24px 55px rgba(26, 92, 201, 0.3);
+            --row-hover: rgba(56, 123, 255, 0.2);
+            --chart-glow: rgba(70, 143, 255, 0.36);
+        }
+
+        html[data-theme="dark"] {
+            --bg: #090e16;
+            --bg-grad-1: #111a28;
+            --bg-grad-2: #090e16;
+            --text: #ecf3ff;
+            --muted: #9bb0ca;
+            --card: rgba(20, 29, 43, 0.82);
+            --card-border: rgba(74, 93, 118, 0.25);
+            --shadow: 0 20px 45px rgba(0, 0, 0, 0.45);
+            --table-head: #1d2a3e;
+            --table-head-text: #eff6ff;
+            --good: #24d08f;
+            --warn: #ffb048;
+            --bad: #ff6880;
+            --line: #64a0ff;
+            --surface: rgba(27, 39, 58, 0.65);
+            --hover-border: rgba(96, 145, 255, 0.42);
+            --hover-shadow: 0 20px 50px rgba(39, 105, 228, 0.2);
+            --row-hover: rgba(80, 141, 255, 0.12);
+            --chart-glow: rgba(84, 151, 255, 0.22);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(1200px 450px at -10% -20%, var(--bg-grad-1) 0%, transparent 55%),
+                radial-gradient(1000px 500px at 110% 0%, var(--bg-grad-2) 0%, transparent 62%),
+                var(--bg);
+            transition: background-color 0.35s ease, color 0.35s ease;
+        }
+
+        .app-shell {
+            width: min(1320px, 100% - 2rem);
+            margin: 1.2rem auto;
+        }
+
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .title-wrap h1 {
+            margin: 0;
+            font-size: clamp(1.2rem, 1.8vw, 1.95rem);
+            letter-spacing: 0.2px;
+            font-weight: 700;
+        }
+
+        .title-wrap p {
+            margin: 0.2rem 0 0;
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        .action-bar {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+        }
+
+        .status-pill {
+            padding: 0.32rem 0.65rem;
+            border-radius: 999px;
+            border: 1px solid var(--card-border);
+            background: var(--surface);
+            color: var(--muted);
+            font-size: 0.82rem;
+        }
+
+        .btn-theme {
+            border: none;
+            border-radius: 999px;
+            padding: 0.45rem 0.95rem;
+            background: linear-gradient(135deg, #1f6feb, #56a2ff);
+            color: #fff;
+            font-size: 0.87rem;
+            font-weight: 600;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.2s ease;
+        }
+
+        .btn-theme:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 18px rgba(42, 113, 230, 0.26);
+            filter: brightness(1.05);
+        }
+
+        .card {
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            background: var(--card);
+            backdrop-filter: blur(8px);
+            box-shadow: var(--shadow);
+            color: var(--text);
+            animation: riseIn 0.5s ease both;
+            transition: transform 0.24s ease, box-shadow 0.24s ease, border-color 0.24s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            border-color: var(--hover-border);
+            box-shadow: var(--hover-shadow);
+        }
+
+        .metric-card {
+            padding: 0.85rem 1rem;
+            text-align: left;
+            height: 100%;
+        }
+
+        .metric-card .metric-label {
+            margin: 0;
+            color: var(--muted);
+            font-size: 0.86rem;
+            letter-spacing: 0.35px;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .metric-card h2 {
+            margin: 0.25rem 0 0;
+            font-weight: 700;
+            font-size: clamp(1.4rem, 2.2vw, 2rem);
+            line-height: 1;
+        }
+
+        .high { color: var(--bad); }
+        .medium { color: var(--warn); }
+        .low { color: var(--good); }
+
+        .chart-card {
+            padding: 0.9rem 1rem;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .chart-card::before {
+            content: "";
+            position: absolute;
+            inset: -35% auto auto -35%;
+            width: 240px;
+            height: 240px;
+            background: radial-gradient(circle, var(--chart-glow) 0%, rgba(84, 151, 255, 0) 72%);
+            pointer-events: none;
+            transform: translate3d(0, 0, 0);
+            transition: transform 0.5s ease;
+        }
+
+        .chart-card:hover::before {
+            transform: translate3d(40px, 30px, 0);
+        }
+
+        .chart-wrap {
+            position: relative;
+            height: 320px;
+        }
+
+        .table-card {
+            padding: 0.85rem 1rem 0.35rem;
+        }
+
+        .section-title {
+            margin: 0 0 0.75rem;
+            font-size: 1.08rem;
+            font-weight: 700;
+        }
+
+        .table thead {
+            background-color: var(--table-head);
+            color: var(--table-head-text);
+        }
+
+        .table {
+            margin-bottom: 0.3rem;
+            color: var(--text);
+            --bs-table-color: var(--text);
+            --bs-table-bg: transparent;
+            --bs-table-border-color: rgba(148, 163, 184, 0.28);
+            --bs-table-striped-color: var(--text);
+            --bs-table-hover-color: var(--text);
+        }
+
+        .table td,
+        .table th {
+            vertical-align: middle;
+            white-space: nowrap;
+            background: transparent;
+            color: var(--text);
+        }
+
+        .table tbody tr {
+            transition: background-color 0.2s ease, transform 0.2s ease;
+        }
+
+        .table tbody tr:hover {
+            background-color: var(--row-hover);
+            transform: scale(1.005);
+        }
+
+        .table-responsive {
+            border-radius: 12px;
+            overflow: auto;
+        }
+
+        .card-animated:nth-child(1) { animation-delay: 0.02s; }
+        .card-animated:nth-child(2) { animation-delay: 0.08s; }
+        .card-animated:nth-child(3) { animation-delay: 0.14s; }
+        .card-animated:nth-child(4) { animation-delay: 0.2s; }
+
+        .schema-form .form-control,
+        .schema-form .form-select {
+            background: var(--surface);
+            color: var(--text);
+            border-color: rgba(148, 163, 184, 0.35);
+        }
+
+        .schema-form .form-control::placeholder {
+            color: var(--muted);
+        }
+
+        .schema-form .form-label {
+            font-size: 0.82rem;
+            color: var(--muted);
+            margin-bottom: 0.2rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .submit-status {
+            margin-top: 0.65rem;
+            font-size: 0.9rem;
+            color: var(--muted);
+        }
+
+        @keyframes riseIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px) scale(0.99);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        @media (max-width: 991px) {
+            .chart-wrap {
+                height: 280px;
+            }
+        }
+
+        @media (max-width: 767px) {
+            .app-shell {
+                width: calc(100% - 1rem);
+                margin: 0.75rem auto;
+            }
+
+            .chart-wrap {
+                height: 250px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+<div class="app-shell">
+    <div class="top-bar">
+        <div class="title-wrap">
+            <h1>AI-Based User Friction Intelligence Dashboard</h1>
+            <p>Real-time behavior signals, risk distribution, and session trend tracking.</p>
+        </div>
+        <div class="action-bar">
+            <span class="status-pill" id="apiStatus">Waiting for API</span>
+            <button class="btn-theme" id="themeToggle">Enable Dark Mode</button>
+        </div>
+    </div>
+
+    <div class="card table-card mb-3">
+        <h5 class="section-title">Live Dashboard Mode</h5>
+        <div class="submit-status">This page is fetch-only. It auto-loads data from backend endpoints.</div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-lg-3 card-animated">
+            <div class="card metric-card">
+                <p class="metric-label">Total Sessions</p>
+                <h2 id="totalSessions">0</h2>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3 card-animated">
+            <div class="card metric-card">
+                <p class="metric-label">High Friction</p>
+                <h2 class="high" id="highCount">0</h2>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3 card-animated">
+            <div class="card metric-card">
+                <p class="metric-label">Medium Friction</p>
+                <h2 class="medium" id="mediumCount">0</h2>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3 card-animated">
+            <div class="card metric-card">
+                <p class="metric-label">Low Friction</p>
+                <h2 class="low" id="lowCount">0</h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-12 col-xl-6">
+            <div class="card chart-card">
+                <h5 class="section-title">Friction Distribution</h5>
+                <div class="chart-wrap">
+                    <canvas id="donutChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-xl-6">
+            <div class="card chart-card">
+                <h5 class="section-title">Friction Trend (Session Order)</h5>
+                <div class="chart-wrap">
+                    <canvas id="lineChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card table-card">
+        <h5 class="section-title">Recent Sessions</h5>
+        <div class="table-responsive">
+            <table class="table table-bordered mb-2">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>User</th>
+                        <th>Entry Screen</th>
+                        <th>Exit Screen</th>
+                        <th>Device</th>
+                        <th>Browser</th>
+                        <th>Clicks</th>
+                        <th>Back</th>
+                        <th>Retry</th>
+                        <th>Dwell</th>
+                        <th>Switch</th>
+                        <th>Probability</th>
+                        <th>Level</th>
+                    </tr>
+                </thead>
+                <tbody id="sessionTable"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+let donutChart;
+let lineChart;
+
+const themeToggle = document.getElementById("themeToggle");
+const apiStatus = document.getElementById("apiStatus");
+const root = document.documentElement;
+
+function setTheme(theme) {
+    root.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
+    themeToggle.textContent = theme === "dark" ? "Disable Dark Mode" : "Enable Dark Mode";
+}
+
+themeToggle.addEventListener("click", () => {
+    const next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    setTheme(next);
+    if (donutChart || lineChart) {
+        loadDashboard();
+    }
+});
+
+(function initTheme() {
+    const saved = localStorage.getItem("theme");
+    if (saved === "dark" || saved === "light") {
+        setTheme(saved);
+    } else {
+        setTheme("light");
+    }
+})();
+
+async function loadDashboard() {
+    try {
+        const [summary, sessions] = await Promise.all([
+            fetch("http://127.0.0.1:8000/analytics-summary").then(res => res.json()),
+            fetch("http://127.0.0.1:8000/sessions").then(res => res.json())
+        ]);
+
+        apiStatus.textContent = "API Connected";
+
+        document.getElementById("totalSessions").innerText = summary.total_sessions;
+        document.getElementById("highCount").innerText = summary.high_friction;
+        document.getElementById("mediumCount").innerText = summary.medium_friction;
+        document.getElementById("lowCount").innerText = summary.low_friction;
+
+        const style = getComputedStyle(document.documentElement);
+        const textColor = style.getPropertyValue("--text").trim();
+        const mutedColor = style.getPropertyValue("--muted").trim();
+        const lineColor = style.getPropertyValue("--line").trim();
+        const lowColor = style.getPropertyValue("--good").trim();
+        const medColor = style.getPropertyValue("--warn").trim();
+        const highColor = style.getPropertyValue("--bad").trim();
+
+        const donutCtx = document.getElementById("donutChart").getContext("2d");
+        if (donutChart) donutChart.destroy();
+
+        donutChart = new Chart(donutCtx, {
+            type: "doughnut",
+            data: {
+                labels: ["Low", "Medium", "High"],
+                datasets: [{
+                    data: [summary.low_friction, summary.medium_friction, summary.high_friction],
+                    backgroundColor: [lowColor, medColor, highColor],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: "62%",
+                animation: { duration: 900, easing: "easeOutQuart" },
+                plugins: {
+                    legend: {
+                        labels: { color: textColor, font: { family: "Helvetica Neue, Helvetica, Arial, sans-serif" } }
+                    }
+                }
+            }
+        });
+
+        const lineCtx = document.getElementById("lineChart").getContext("2d");
+        if (lineChart) lineChart.destroy();
+
+        lineChart = new Chart(lineCtx, {
+            type: "line",
+            data: {
+                labels: sessions.map(s => s.id),
+                datasets: [{
+                    label: "Friction Probability",
+                    data: sessions.map(s => s.friction_probability),
+                    borderColor: lineColor,
+                    backgroundColor: "transparent",
+                    borderWidth: 3,
+                    tension: 0.35,
+                    pointRadius: 3,
+                    pointHoverRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 800, easing: "easeOutCubic" },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: "Session ID (Session Order)",
+                            color: textColor,
+                            font: { family: "Helvetica Neue, Helvetica, Arial, sans-serif", weight: "600" }
+                        },
+                        ticks: { color: mutedColor },
+                        grid: { color: "rgba(127,127,127,0.15)" }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        max: 1,
+                        title: {
+                            display: true,
+                            text: "Friction Probability (0 to 1)",
+                            color: textColor,
+                            font: { family: "Helvetica Neue, Helvetica, Arial, sans-serif", weight: "600" }
+                        },
+                        ticks: { color: mutedColor },
+                        grid: { color: "rgba(127,127,127,0.15)" }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        labels: { color: textColor, font: { family: "Helvetica Neue, Helvetica, Arial, sans-serif" } }
+                    }
+                }
+            }
+        });
+
+        const table = document.getElementById("sessionTable");
+        table.innerHTML = "";
+        sessions.slice(0, 10).forEach(s => {
+            table.innerHTML += `
+                <tr>
+                    <td>${s.id}</td>
+                    <td>${s.user_id ?? "-"}</td>
+                    <td>${s.entry_screen_id ?? "-"}</td>
+                    <td>${s.exit_screen_id ?? "-"}</td>
+                    <td>${s.device_type ?? "-"}</td>
+                    <td>${s.browser ?? "-"}</td>
+                    <td>${s.total_clicks}</td>
+                    <td>${s.back_clicks}</td>
+                    <td>${s.retry_count}</td>
+                    <td>${s.dwell_time}</td>
+                    <td>${s.page_switch_count}</td>
+                    <td>${s.friction_probability.toFixed(2)}</td>
+                    <td>${s.friction_level}</td>
+                </tr>
+            `;
+        });
+    } catch (err) {
+        apiStatus.textContent = "API Unavailable";
+        console.error(err);
+    }
+}
+
+// Auto refresh every 5 sec.
+setInterval(loadDashboard, 5000);
+loadDashboard();
+</script>
+
+</body>
+</html>

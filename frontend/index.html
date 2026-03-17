@@ -110,11 +110,41 @@
 <script>
 let donutChart;
 let lineChart;
+const API_BASE = window.location.protocol === "file:" ? "http://127.0.0.1:8010" : "";
+
+function ensureChartMessage(canvasId, message) {
+    const canvas = document.getElementById(canvasId);
+    const wrapper = canvas?.parentElement;
+    if (!wrapper) return;
+
+    let fallback = wrapper.querySelector(`[data-chart-fallback="${canvasId}"]`);
+    if (!fallback) {
+        fallback = document.createElement("div");
+        fallback.setAttribute("data-chart-fallback", canvasId);
+        fallback.style.display = "flex";
+        fallback.style.alignItems = "center";
+        fallback.style.justifyContent = "center";
+        fallback.style.minHeight = "240px";
+        fallback.style.textAlign = "center";
+        fallback.style.color = "#6c757d";
+        wrapper.appendChild(fallback);
+    }
+
+    fallback.textContent = message;
+    canvas.style.display = "none";
+}
+
+function clearChartMessage(canvasId) {
+    const canvas = document.getElementById(canvasId);
+    const wrapper = canvas?.parentElement;
+    const fallback = wrapper?.querySelector(`[data-chart-fallback="${canvasId}"]`);
+    if (fallback) fallback.remove();
+    if (canvas) canvas.style.display = "block";
+}
 
 async function loadDashboard() {
-
-    const summary = await fetch("http://127.0.0.1:8000/analytics-summary").then(res => res.json());
-    const sessions = await fetch("http://127.0.0.1:8000/sessions").then(res => res.json());
+    const summary = await fetch(`${API_BASE}/analytics-summary`).then(res => res.json());
+    const sessions = await fetch(`${API_BASE}/sessions`).then(res => res.json());
 
     // Update KPI
     document.getElementById("totalSessions").innerText = summary.total_sessions;
@@ -123,42 +153,50 @@ async function loadDashboard() {
     document.getElementById("lowCount").innerText = summary.low_friction;
 
     // Donut Chart
-    const donutCtx = document.getElementById("donutChart").getContext("2d");
+    if (typeof Chart === "undefined") {
+        ensureChartMessage("donutChart", "Chart.js did not load, so charts are unavailable in this session.");
+        ensureChartMessage("lineChart", "Chart.js did not load, so charts are unavailable in this session.");
+    } else {
+        clearChartMessage("donutChart");
+        clearChartMessage("lineChart");
 
-    if (donutChart) donutChart.destroy();
+        const donutCtx = document.getElementById("donutChart").getContext("2d");
 
-    donutChart = new Chart(donutCtx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Low', 'Medium', 'High'],
-            datasets: [{
-                data: [
-                    summary.low_friction,
-                    summary.medium_friction,
-                    summary.high_friction
-                ],
-                backgroundColor: ['#198754', '#fd7e14', '#dc3545']
-            }]
-        }
-    });
+        if (donutChart) donutChart.destroy();
 
-    // Line Chart (Probability trend)
-    const lineCtx = document.getElementById("lineChart").getContext("2d");
+        donutChart = new Chart(donutCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Low', 'Medium', 'High'],
+                datasets: [{
+                    data: [
+                        summary.low_friction,
+                        summary.medium_friction,
+                        summary.high_friction
+                    ],
+                    backgroundColor: ['#198754', '#fd7e14', '#dc3545']
+                }]
+            }
+        });
 
-    if (lineChart) lineChart.destroy();
+        // Line Chart (Probability trend)
+        const lineCtx = document.getElementById("lineChart").getContext("2d");
 
-    lineChart = new Chart(lineCtx, {
-        type: 'line',
-        data: {
-            labels: sessions.map(s => s.id),
-            datasets: [{
-                label: 'Friction Probability',
-                data: sessions.map(s => s.friction_probability),
-                borderColor: '#0d6efd',
-                fill: false
-            }]
-        }
-    });
+        if (lineChart) lineChart.destroy();
+
+        lineChart = new Chart(lineCtx, {
+            type: 'line',
+            data: {
+                labels: sessions.map(s => s.id),
+                datasets: [{
+                    label: 'Friction Probability',
+                    data: sessions.map(s => s.friction_probability),
+                    borderColor: '#0d6efd',
+                    fill: false
+                }]
+            }
+        });
+    }
 
     // Table
     const table = document.getElementById("sessionTable");

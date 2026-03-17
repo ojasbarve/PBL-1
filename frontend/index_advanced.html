@@ -402,10 +402,48 @@
 <script>
 let donutChart;
 let lineChart;
+const API_BASE = `${window.location.protocol}//${window.location.hostname || "127.0.0.1"}:8010`;
 
 const themeToggle = document.getElementById("themeToggle");
 const apiStatus = document.getElementById("apiStatus");
 const root = document.documentElement;
+
+function ensureChartMessage(canvasId, message) {
+    const canvas = document.getElementById(canvasId);
+    const wrapper = canvas?.parentElement;
+    if (!wrapper) return;
+
+    let fallback = wrapper.querySelector(`[data-chart-fallback="${canvasId}"]`);
+    if (!fallback) {
+        fallback = document.createElement("div");
+        fallback.setAttribute("data-chart-fallback", canvasId);
+        fallback.style.position = "absolute";
+        fallback.style.inset = "0";
+        fallback.style.display = "flex";
+        fallback.style.alignItems = "center";
+        fallback.style.justifyContent = "center";
+        fallback.style.padding = "1rem";
+        fallback.style.textAlign = "center";
+        fallback.style.color = "var(--muted)";
+        fallback.style.fontSize = "0.95rem";
+        wrapper.appendChild(fallback);
+    }
+
+    fallback.textContent = message;
+    canvas.style.visibility = "hidden";
+}
+
+function clearChartMessage(canvasId) {
+    const canvas = document.getElementById(canvasId);
+    const wrapper = canvas?.parentElement;
+    const fallback = wrapper?.querySelector(`[data-chart-fallback="${canvasId}"]`);
+    if (fallback) {
+        fallback.remove();
+    }
+    if (canvas) {
+        canvas.style.visibility = "visible";
+    }
+}
 
 function setTheme(theme) {
     root.setAttribute("data-theme", theme);
@@ -433,8 +471,8 @@ themeToggle.addEventListener("click", () => {
 async function loadDashboard() {
     try {
         const [summary, sessions] = await Promise.all([
-            fetch("http://127.0.0.1:8000/analytics-summary").then(res => res.json()),
-            fetch("http://127.0.0.1:8000/sessions").then(res => res.json())
+            fetch(`${API_BASE}/analytics-summary`).then(res => res.json()),
+            fetch(`${API_BASE}/sessions`).then(res => res.json())
         ]);
 
         apiStatus.textContent = "API Connected";
@@ -452,85 +490,93 @@ async function loadDashboard() {
         const medColor = style.getPropertyValue("--warn").trim();
         const highColor = style.getPropertyValue("--bad").trim();
 
-        const donutCtx = document.getElementById("donutChart").getContext("2d");
-        if (donutChart) donutChart.destroy();
+        if (typeof Chart === "undefined") {
+            ensureChartMessage("donutChart", "Chart.js did not load, so charts are unavailable in this session.");
+            ensureChartMessage("lineChart", "Chart.js did not load, so charts are unavailable in this session.");
+        } else {
+            clearChartMessage("donutChart");
+            clearChartMessage("lineChart");
 
-        donutChart = new Chart(donutCtx, {
-            type: "doughnut",
-            data: {
-                labels: ["Low", "Medium", "High"],
-                datasets: [{
-                    data: [summary.low_friction, summary.medium_friction, summary.high_friction],
-                    backgroundColor: [lowColor, medColor, highColor],
-                    borderWidth: 0
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                cutout: "62%",
-                animation: { duration: 900, easing: "easeOutQuart" },
-                plugins: {
-                    legend: {
-                        labels: { color: textColor, font: { family: "Helvetica Neue, Helvetica, Arial, sans-serif" } }
-                    }
-                }
-            }
-        });
+            const donutCtx = document.getElementById("donutChart").getContext("2d");
+            if (donutChart) donutChart.destroy();
 
-        const lineCtx = document.getElementById("lineChart").getContext("2d");
-        if (lineChart) lineChart.destroy();
-
-        lineChart = new Chart(lineCtx, {
-            type: "line",
-            data: {
-                labels: sessions.map(s => s.id),
-                datasets: [{
-                    label: "Friction Probability",
-                    data: sessions.map(s => s.friction_probability),
-                    borderColor: lineColor,
-                    backgroundColor: "transparent",
-                    borderWidth: 3,
-                    tension: 0.35,
-                    pointRadius: 3,
-                    pointHoverRadius: 5
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: { duration: 800, easing: "easeOutCubic" },
-                scales: {
-                    x: {
-                        title: {
-                            display: true,
-                            text: "Session ID (Session Order)",
-                            color: textColor,
-                            font: { family: "Helvetica Neue, Helvetica, Arial, sans-serif", weight: "600" }
-                        },
-                        ticks: { color: mutedColor },
-                        grid: { color: "rgba(127,127,127,0.15)" }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        max: 1,
-                        title: {
-                            display: true,
-                            text: "Friction Probability (0 to 1)",
-                            color: textColor,
-                            font: { family: "Helvetica Neue, Helvetica, Arial, sans-serif", weight: "600" }
-                        },
-                        ticks: { color: mutedColor },
-                        grid: { color: "rgba(127,127,127,0.15)" }
-                    }
+            donutChart = new Chart(donutCtx, {
+                type: "doughnut",
+                data: {
+                    labels: ["Low", "Medium", "High"],
+                    datasets: [{
+                        data: [summary.low_friction, summary.medium_friction, summary.high_friction],
+                        backgroundColor: [lowColor, medColor, highColor],
+                        borderWidth: 0
+                    }]
                 },
-                plugins: {
-                    legend: {
-                        labels: { color: textColor, font: { family: "Helvetica Neue, Helvetica, Arial, sans-serif" } }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: "62%",
+                    animation: { duration: 900, easing: "easeOutQuart" },
+                    plugins: {
+                        legend: {
+                            labels: { color: textColor, font: { family: "Helvetica Neue, Helvetica, Arial, sans-serif" } }
+                        }
                     }
                 }
-            }
-        });
+            });
+
+            const lineCtx = document.getElementById("lineChart").getContext("2d");
+            if (lineChart) lineChart.destroy();
+
+            lineChart = new Chart(lineCtx, {
+                type: "line",
+                data: {
+                    labels: sessions.map(s => s.id),
+                    datasets: [{
+                        label: "Friction Probability",
+                        data: sessions.map(s => s.friction_probability),
+                        borderColor: lineColor,
+                        backgroundColor: "transparent",
+                        borderWidth: 3,
+                        tension: 0.35,
+                        pointRadius: 3,
+                        pointHoverRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 800, easing: "easeOutCubic" },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: "Session ID (Session Order)",
+                                color: textColor,
+                                font: { family: "Helvetica Neue, Helvetica, Arial, sans-serif", weight: "600" }
+                            },
+                            ticks: { color: mutedColor },
+                            grid: { color: "rgba(127,127,127,0.15)" }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            max: 1,
+                            title: {
+                                display: true,
+                                text: "Friction Probability (0 to 1)",
+                                color: textColor,
+                                font: { family: "Helvetica Neue, Helvetica, Arial, sans-serif", weight: "600" }
+                            },
+                            ticks: { color: mutedColor },
+                            grid: { color: "rgba(127,127,127,0.15)" }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: { color: textColor, font: { family: "Helvetica Neue, Helvetica, Arial, sans-serif" } }
+                        }
+                    }
+                }
+            });
+        }
 
         const table = document.getElementById("sessionTable");
         table.innerHTML = "";
